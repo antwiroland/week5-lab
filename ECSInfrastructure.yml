@@ -1,6 +1,3 @@
-template-file-path: params.yml
-parameters: {}
-tags: {}
 AWSTemplateFormatVersion: '2010-09-09'
 Description: ECS CICD Lab with High Availability, Dual NAT Gateways, CodeDeploy Blue/Green, CodePipeline, and GitHub OIDC
 
