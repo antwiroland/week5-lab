@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ECS Fargate CI/CD Lab Infrastructure with High Availability (Multi-AZ NAT Gateways)'
+Description: 'ECS Fargate CI/CD Lab with ALB, CloudWatch Logs, and High Availability'
 
 Parameters:
   AppName:
     Type: String
     Default: 'java-full-stack'
-    Description: 'Application name used to name resources'
+    Description: 'Application name used for resources'
   GitHubRepoName:
     Type: String
     Default: 'ecs-cicd-lab-app'
@@ -17,7 +17,7 @@ Parameters:
   GitHubUser:
     Type: String
     Default: 'my-github-user'
-    Description: 'GitHub user or org name'
+    Description: 'GitHub user or organization'
 
 Resources:
 
@@ -88,13 +88,11 @@ Resources:
 
   NatGatewayEIP1:
     Type: AWS::EC2::EIP
-    DependsOn: VPCGatewayAttachment
     Properties:
       Domain: vpc
 
   NatGatewayEIP2:
     Type: AWS::EC2::EIP
-    DependsOn: VPCGatewayAttachment
     Properties:
       Domain: vpc
 
@@ -172,13 +170,8 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable2
 
   ###########################################
-  # ECS Cluster & CloudWatch Log Group
+  # CloudWatch Log Group (explicit name)
   ###########################################
-
-  ECSCluster:
-    Type: AWS::ECS::Cluster
-    Properties:
-      ClusterName: !Sub ${AppName}-cluster
 
   CloudWatchLogGroup:
     Type: AWS::Logs::LogGroup
@@ -222,11 +215,16 @@ Resources:
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: '*'
+                Resource: "*"
 
   ###########################################
-  # ECS Task Definition
+  # ECS Cluster, Task Definition, Service
   ###########################################
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${AppName}-cluster
 
   ECSTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -241,7 +239,7 @@ Resources:
       TaskRoleArn: !GetAtt ECSTaskRole.Arn
       ContainerDefinitions:
         - Name: !Sub ${AppName}-container
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest"
           Essential: true
           PortMappings:
             - ContainerPort: 8080
@@ -251,6 +249,21 @@ Resources:
               awslogs-group: !Sub "/ecs/${AppName}-logs"
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
+
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub ${AppName}-service
+      Cluster: !Ref ECSCluster
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroups: []
 
   ###########################################
   # Outputs
