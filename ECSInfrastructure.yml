@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ECS Fargate CI/CD Lab with ALB, CloudWatch Logs, and High Availability'
+Description: 'ECS Fargate CI/CD Lab with ALB, CloudWatch Logs, High Availability, and GitHub OIDC'
 
 Parameters:
   AppName:
@@ -8,7 +8,7 @@ Parameters:
     Description: 'Application name used for resources'
   GitHubRepoName:
     Type: String
-    Default: 'ecs-cicd-lab-app'
+    Default: 'todo-week3-lab'
     Description: 'GitHub repository name'
   GitHubBranch:
     Type: String
@@ -16,7 +16,7 @@ Parameters:
     Description: 'Branch to build from'
   GitHubUser:
     Type: String
-    Default: 'my-github-user'
+    Default: 'antwiroland'
     Description: 'GitHub user or organization'
 
 Resources:
@@ -284,6 +284,36 @@ Resources:
             - !Ref ECSServiceSecurityGroup
 
   ###########################################
+  # GitHub OIDC Provider and Role
+  ###########################################
+
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppName}-GitHubActionsRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOIDCProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubUser}/${GitHubRepoName}:ref:refs/heads/${GitHubBranch}"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  ###########################################
   # Outputs
   ###########################################
 
@@ -296,3 +326,5 @@ Outputs:
     Value: !Ref ECSTaskDefinition
   ECSServiceName:
     Value: !Ref ECSService
+  GitHubActionsRoleArn:
+    Value: !GetAtt GitHubActionsRole.Arn
