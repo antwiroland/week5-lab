@@ -170,7 +170,22 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable2
 
   ###########################################
-  # CloudWatch Log Group (explicit name)
+  # Security Group
+  ###########################################
+
+  ECSServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ECS Service SG
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+  ###########################################
+  # CloudWatch Log Group
   ###########################################
 
   CloudWatchLogGroup:
@@ -252,9 +267,11 @@ Resources:
 
   ECSService:
     Type: AWS::ECS::Service
+    DependsOn: ECSCluster
     Properties:
       ServiceName: !Sub ${AppName}-service
       Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref ECSTaskDefinition
       DesiredCount: 1
       LaunchType: FARGATE
       NetworkConfiguration:
@@ -263,7 +280,8 @@ Resources:
           Subnets:
             - !Ref PrivateSubnet1
             - !Ref PrivateSubnet2
-          SecurityGroups: []
+          SecurityGroups:
+            - !Ref ECSServiceSecurityGroup
 
   ###########################################
   # Outputs
@@ -276,3 +294,5 @@ Outputs:
     Value: !Ref CloudWatchLogGroup
   TaskDefinitionFamily:
     Value: !Ref ECSTaskDefinition
+  ECSServiceName:
+    Value: !Ref ECSService
