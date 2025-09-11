@@ -422,6 +422,7 @@ Resources:
 
   ECSTaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DependsOn: CloudWatchLogGroup 
     Properties:
       Family: !Sub ${AppName}-Task
       NetworkMode: awsvpc
